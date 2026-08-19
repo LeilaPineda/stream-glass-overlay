@@ -8,11 +8,15 @@ from ctypes import wintypes
 from datetime import datetime
 import base64
 from pathlib import Path
+
+# --- Hilos y Servidor Web Asíncrono ---
 from twitchAPI.oauth import UserAuthenticator
 from aiohttp import web
 
 # ------------------------------------------------------------------------------
-# TRUCO DE WINDOWS: Permite que muestre el icono personalizado en la barra de tareas
+# CONFIGURACIÓN DE REGISTRO EN WINDOWS
+# Asigna un AppUserModelID para que Windows reconozca la aplicación y muestre
+# su icono correctamente en la barra de tareas.
 # ------------------------------------------------------------------------------
 try:
     myappid = 'streamglass.overlay.app.1.0'
@@ -20,7 +24,9 @@ try:
 except Exception:
     pass
 
-# PyQt6
+# ------------------------------------------------------------------------------
+# COMPONENTES DE INTERFAZ GRÁFICA (PyQt6)
+# ------------------------------------------------------------------------------
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
     QLabel, QPushButton, QLineEdit, QDialog, QFormLayout,
@@ -30,26 +36,31 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QRect, QAbstractNativeEventFil
 from PyQt6.QtGui import QPainter, QColor, QIcon
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
-# Twitch API
+# ------------------------------------------------------------------------------
+# INTEGRACIÓN DE BIBLIOTECAS DE STREAMING
+# ------------------------------------------------------------------------------
+# Twitch API & EventSub
 from twitchAPI.twitch import Twitch
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
 
-# TikTok Live
+# TikTok Live SDK
 from TikTokLive import TikTokLiveClient
 from TikTokLive.events import (
     CommentEvent, LikeEvent, FollowEvent, ShareEvent, GiftEvent
 )
 
-# Constantes de Windows
+# ------------------------------------------------------------------------------
+# CONSTANTES DE API DE WINDOWS Y CONFIGURACIÓN GENERAL
+# ------------------------------------------------------------------------------
 GWL_EXSTYLE = -20
-WS_EX_TRANSPARENT = 0x00000020
+WS_EX_TRANSPARENT = 0x00000020  # Permite "click-through" (ignora eventos del ratón)
 WM_HOTKEY = 0x0312
 HOTKEY_ID = 1001
 MOD_CONTROL = 0x0002
 MOD_ALT = 0x0001
-VK_L = 0x4C  # Tecla 'L'
+VK_L = 0x4C  # Código de la tecla 'L'
 
 CONFIG_FILE = "config.json"
 
@@ -79,9 +90,14 @@ DEFAULT_CONFIG = {
 }
 
 class POINT(ctypes.Structure):
+    """Estructura C para capturar las coordenadas (x, y) del cursor."""
     _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
+# ------------------------------------------------------------------------------
+# FUNCIONES AUXILIARES DE ARCHIVOS Y FORMATO
+# ------------------------------------------------------------------------------
 def load_config():
+    """Carga la configuración desde el archivo JSON o crea una por defecto."""
     config = json.loads(json.dumps(DEFAULT_CONFIG))
     if os.path.exists(CONFIG_FILE):
         try:
@@ -97,6 +113,7 @@ def load_config():
     return config
 
 def save_config(config_data):
+    """Guarda los ajustes actuales dentro del archivo JSON de configuración."""
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=4, ensure_ascii=False)
@@ -104,6 +121,7 @@ def save_config(config_data):
         print(f"[Config Save Error]: {e}")
 
 def hex_to_rgba(hex_str, opacity_percent):
+    """Convierte un color en formato HEX (#RRGGBB) a formato CSS rgba(r,g,b,a)."""
     hex_str = hex_str.lstrip('#')
     r = int(hex_str[0:2], 16) if len(hex_str) >= 2 else 0
     g = int(hex_str[2:4], 16) if len(hex_str) >= 4 else 0
@@ -112,7 +130,11 @@ def hex_to_rgba(hex_str, opacity_percent):
     return f"rgba({r}, {g}, {b}, {a})"
 
 
+# ------------------------------------------------------------------------------
+# VENTANA DE CONFIGURACIÓN Y AJUSTES (SettingsDialog)
+# ------------------------------------------------------------------------------
 class SettingsDialog(QDialog):
+    """Diálogo emergente para ajustar cuentas, colores y visibilidad de eventos."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("StreamGlass")
@@ -148,6 +170,7 @@ class SettingsDialog(QDialog):
 
         tabs = QTabWidget()
 
+        # --- Pestaña 1: Conexiones de Plataformas ---
         tab_conn = QWidget()
         conn_layout = QFormLayout(tab_conn)
         conn_layout.setSpacing(10)
@@ -171,6 +194,7 @@ class SettingsDialog(QDialog):
         conn_layout.addRow("Twitch Client Secret:", self.twitch_secret_input)
         tabs.addTab(tab_conn, "Conexiones")
 
+        # --- Pestaña 2: Personalización de Colores u Opacidad ---
         tab_color = QWidget()
         color_layout = QVBoxLayout(tab_color)
         color_layout.setSpacing(8)
@@ -205,6 +229,7 @@ class SettingsDialog(QDialog):
         color_layout.addStretch()
         tabs.addTab(tab_color, "Colores")
 
+        # --- Pestaña 3: Filtros de Visibilidad de Mensajes y Eventos ---
         tab_view = QWidget()
         view_layout = QVBoxLayout(tab_view)
         view_layout.setSpacing(6)
@@ -257,6 +282,7 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(tabs)
 
+        # Botones de Acción inferior
         btn_box = QHBoxLayout()
         btn_box.addStretch()
 
@@ -273,6 +299,7 @@ class SettingsDialog(QDialog):
         layout.addLayout(btn_box)
 
     def create_color_button(self, label_text, initial_color):
+        """Genera dinámicamente un botón que muestra el color actual seleccionado."""
         btn = QPushButton(f"  {label_text}")
         btn.color_val = initial_color
         btn.setStyleSheet(f"background-color: {initial_color}; color: #ffffff; text-align: left; padding: 6px; font-weight: bold; border-radius: 6px;")
@@ -280,12 +307,14 @@ class SettingsDialog(QDialog):
         return btn
 
     def pick_color(self, button):
+        """Abre el cuadro de diálogo selector de color de Qt y actualiza el botón."""
         color = QColorDialog.getColor(QColor(button.color_val), self, "Seleccionar Color")
         if color.isValid():
             button.color_val = color.name()
             button.setStyleSheet(f"background-color: {color.name()}; color: #ffffff; text-align: left; padding: 6px; font-weight: bold; border-radius: 6px;")
 
     def reset_colors_to_default(self):
+        """Restablece los valores del tema a los predeterminados de fábrica."""
         def_theme = DEFAULT_CONFIG["theme"]
         self.btn_border_color.color_val = def_theme["border_color"]
         self.btn_border_color.setStyleSheet(f"background-color: {def_theme['border_color']}; color: #ffffff; text-align: left; padding: 6px; font-weight: bold; border-radius: 6px;")
@@ -300,6 +329,7 @@ class SettingsDialog(QDialog):
         self.slider_opacity.setValue(def_theme["card_opacity"])
 
     def save_and_close(self):
+        """Recopila todos los datos modificados en el diálogo y los guarda en config.json."""
         new_config = {
             "tiktok_username": self.tiktok_input.text().strip(),
             "twitch_channel": self.twitch_channel_input.text().strip(),
@@ -328,7 +358,11 @@ class SettingsDialog(QDialog):
         self.accept()
 
 
+# ------------------------------------------------------------------------------
+# TRABAJADOR SECUNDARIO: TWITCH EVENTSUB (WEBSOCKET & OAUTH)
+# ------------------------------------------------------------------------------
 class TwitchEventSubWorker(QThread):
+    """Procesa alertas avanzadas de Twitch (Puntos de canal, Bits, Raids) vía WebSockets."""
     event_received = pyqtSignal(str, str, str, str)
 
     def __init__(self, client_id, client_secret, channel):
@@ -368,25 +402,20 @@ class TwitchEventSubWorker(QThread):
                 AuthScope.MODERATOR_READ_FOLLOWERS
             ]
 
-            # 1. Función para leer tu logo local de forma segura y convertirlo a texto Base64
+            # Convertir el icono local a Base64 para inyectarlo en la respuesta HTTP local
             def obtener_logo_base64():
-                # Buscamos de forma segura la ruta: assets/logo.png (o cambia a .jpg si es necesario)
                 ruta_logo = Path(__file__).parent / 'assets' / 'icon.png'
-                
                 if ruta_logo.exists():
                     with open(ruta_logo, "rb") as image_file:
-                        # Convertimos los bytes de la imagen a una cadena Base64
                         encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
                         return f"data:image/png;base64,{encoded_string}"
                 else:
-                    # Si por alguna razón no encuentra el archivo, devolvemos un string vacío
                     print(f"[Advertencia]: No se encontró el logo en {ruta_logo}")
                     return ""
 
-            # Guardamos el logo procesado en una variable
             LOGO_SRC = obtener_logo_base64()
 
-            # 2. Definimos tu HTML moderno con la etiqueta de imagen adaptada para StreamGlass
+            # Estructura HTML de la respuesta al completar la autenticación OAuth
             HTML_PERSONALIZADO = f"""
             <!DOCTYPE html>
             <html lang="es">
@@ -394,64 +423,20 @@ class TwitchEventSubWorker(QThread):
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 {"<link rel='icon' type='image/png' href='" + LOGO_SRC + "'>" if LOGO_SRC else ""}
-                
                 <title>StreamGlass - Autenticación</title>
                 <style>
-                    body {{
-                        background-color: #0e0e10;
-                        color: #efeff1;
-                        font-family: 'Segoe UI', Arial, sans-serif;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        margin: 0;
-                    }}
-                    .card {{
-                        background-color: #1f1f23;
-                        padding: 40px;
-                        border-radius: 12px;
-                        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-                        text-align: center;
-                        border: 2px solid #9146ff;
-                        max-width: 420px;
-                    }}
-                    .app-header {{
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 12px;
-                        margin-bottom: 25px;
-                    }}
-                    .app-logo {{
-                        width: 70px;
-                        height: 70px;
-                        object-fit: contain;
-                    }}
-                    .app-name {{
-                        font-weight: bold;
-                        color: #00fff0;
-                        font-size: 20px;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                    }}
-                    h1 {{
-                        color: #9146ff;
-                        font-size: 24px;
-                        margin-top: 0;
-                        margin-bottom: 12px;
-                    }}
-                    p {{
-                        color: #adadb8;
-                        font-size: 15px;
-                        line-height: 1.6;
-                    }}
+                    body {{ background-color: #0e0e10; color: #efeff1; font-family: 'Segoe UI', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+                    .card {{ background-color: #1f1f23; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); text-align: center; border: 2px solid #9146ff; max-width: 420px; }}
+                    .app-header {{ display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 25px; }}
+                    .app-logo {{ width: 70px; height: 70px; object-fit: contain; }}
+                    .app-name {{ font-weight: bold; color: #00fff0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }}
+                    h1 {{ color: #9146ff; font-size: 24px; margin-top: 0; margin-bottom: 12px; }}
+                    p {{ color: #adadb8; font-size: 15px; line-height: 1.6; }}
                 </style>
             </head>
             <body>
                 <div class="card">
                     <div class="app-header">
-                        <!-- Aquí se inyecta dinámicamente tu imagen de la carpeta assets -->
                         {"<img src='" + LOGO_SRC + "' class='app-logo' alt='Logo'>" if LOGO_SRC else ""}
                         <div class="app-name">StreamGlass</div>
                     </div>
@@ -463,7 +448,7 @@ class TwitchEventSubWorker(QThread):
             </html>
             """
 
-            # 3. INYECCIÓN ABSOLUTA A NIVEL DE RESPUESTA DE RED (Mantenemos tu parche exitoso)
+            # Parche dinámico sobre aiohttp para reemplazo directo de la página por defecto
             _original_response_init = web.Response.__init__
 
             def custom_response_init(self, *args, **kwargs):
@@ -475,8 +460,7 @@ class TwitchEventSubWorker(QThread):
 
             web.Response.__init__ = custom_response_init
 
-
-            # # Authenticator configurado al puerto 8080
+            # Iniciar Servidor OAuth local en puerto 8080
             auth = UserAuthenticator(
                 twitch,
                 target_scopes,
@@ -485,10 +469,8 @@ class TwitchEventSubWorker(QThread):
                 port=8080
             )
 
-            # # Iniciar autenticación
             token, refresh_token = await auth.authenticate()
             await twitch.set_user_authentication(token, target_scopes, refresh_token)
-
 
             user_id = None
             async for u in twitch.get_users(logins=[self.channel]):
@@ -501,6 +483,7 @@ class TwitchEventSubWorker(QThread):
             eventsub = EventSubWebsocket(twitch)
             eventsub.start()
 
+            # Callbacks para eventos EventSub
             async def on_reward_redemption(data):
                 try:
                     event = data.event
@@ -547,7 +530,11 @@ class TwitchEventSubWorker(QThread):
         self.is_running = False
 
 
+# ------------------------------------------------------------------------------
+# TRABAJADOR SECUNDARIO: TIKTOK LIVE SDK
+# ------------------------------------------------------------------------------
 class TikTokWorker(QThread):
+    """Conecta en tiempo real con directos de TikTok mediante WebSockets."""
     event_received = pyqtSignal(str, str, str, str)
 
     def __init__(self, username):
@@ -570,6 +557,7 @@ class TikTokWorker(QThread):
                 @client.on(CommentEvent)
                 async def on_comment(event: CommentEvent):
                     comment_text = event.comment or ""
+                    # Procesar emoticonos e imágenes integradas en TikTok Live
                     if hasattr(event, 'emotes') and event.emotes:
                         for emote in event.emotes:
                             image_url = None
@@ -589,6 +577,7 @@ class TikTokWorker(QThread):
                                     else:
                                         comment_text += f" {img_tag}"
 
+                    # Mapeo de códigos de emoticonos de TikTok a emojis Unicode
                     tiktok_emoji_map = {
                         "[heart]": "❤️", "[love]": "😍", "[smile]": "😊", "[happy]": "😄",
                         "[laugh]": "😂", "[cry]": "😭", "[angry]": "😡", "[surprised]": "😮",
@@ -612,6 +601,7 @@ class TikTokWorker(QThread):
 
                 @client.on(GiftEvent)
                 async def on_gift(event: GiftEvent):
+                    # Filtrar secuencias continuas de regalos (streaks) para evitar spam masivo
                     if event.gift.streakable and event.streaking:
                         return
                     gift_text = f"envió {event.repeat_count} x {event.gift.name}" if event.gift.streakable else f"envió {event.gift.name}"
@@ -635,7 +625,11 @@ class TikTokWorker(QThread):
         self.is_running = False
 
 
+# ------------------------------------------------------------------------------
+# TRABAJADOR SECUNDARIO: TWITCH CHAT (PROTOCOLO IRC)
+# ------------------------------------------------------------------------------
 class TwitchWorker(QThread):
+    """Conexión anónima mediante sockets al servidor IRC oficial de Twitch."""
     event_received = pyqtSignal(str, str, str, str)
 
     def __init__(self, channel):
@@ -650,7 +644,7 @@ class TwitchWorker(QThread):
         
         server = "irc.chat.twitch.tv"
         port = 6667
-        nickname = "justinfan84729"
+        nickname = "justinfan84729"  # Nickname anónimo estándar de Twitch
         channel_name = f"#{self.channel.lower()}"
 
         while self.is_running:
@@ -659,6 +653,7 @@ class TwitchWorker(QThread):
                 sock = socket.socket()
                 sock.settimeout(15.0)
                 sock.connect((server, port))
+                # Solicitar capacidades adicionales (tags de insignias, bits, emoticonos)
                 sock.send("CAP REQ :twitch.tv/tags twitch.tv/commands\r\n".encode("utf-8"))
                 sock.send(f"NICK {nickname}\r\n".encode("utf-8"))
                 sock.send(f"JOIN {channel_name}\r\n".encode("utf-8"))
@@ -673,6 +668,7 @@ class TwitchWorker(QThread):
                     if not resp:
                         break
 
+                    # Responder al PING para mantener viva la conexión IRC
                     if resp.startswith("PING"):
                         sock.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
                         continue
@@ -681,6 +677,7 @@ class TwitchWorker(QThread):
                         if not line:
                             continue
 
+                        # Notificaciones del sistema (Suscripciones, Raids)
                         if "USERNOTICE" in line:
                             tags = {}
                             if line.startswith("@"):
@@ -705,6 +702,7 @@ class TwitchWorker(QThread):
                                 detail = f"llegó con una <b>Raid de {viewers} espectadores</b>! 🚀"
                                 self.event_received.emit("Twitch", "reward", user, detail)
 
+                        # Mensajes estándar del chat (PRIVMSG)
                         elif "PRIVMSG" in line:
                             tags = {}
                             if line.startswith("@"):
@@ -744,6 +742,7 @@ class TwitchWorker(QThread):
                 self.sleep(1)
 
     def parse_twitch_emotes(self, message, emotes_str):
+        """Convierte los códigos de emoticonos de Twitch en imágenes HTML (<img>)."""
         try:
             replacements = []
             for emote_data in emotes_str.split('/'):
@@ -768,7 +767,11 @@ class TwitchWorker(QThread):
         self.is_running = False
 
 
+# ------------------------------------------------------------------------------
+# COMPONENTE DE INTERFAZ: TARJETA DE EFECTO CRISTAL (GlassCard)
+# ------------------------------------------------------------------------------
 class GlassCard(QFrame):
+    """Contenedor personalizado con bordes redondeados y transparencia (Glassmorphism)."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.opacity_val = 0.70
@@ -788,6 +791,7 @@ class GlassCard(QFrame):
         self.update()
 
     def paintEvent(self, event):
+        """Dibuja el fondo translúcido y bordes neón usando QPainter."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
@@ -803,7 +807,11 @@ class GlassCard(QFrame):
         painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 16, 16)
 
 
+# ------------------------------------------------------------------------------
+# FILTRO NATIVO DE EVENTOS DE WINDOWS (WinEventFilter)
+# ------------------------------------------------------------------------------
 class WinEventFilter(QAbstractNativeEventFilter):
+    """Intercepta el atajo global (Ctrl + Alt + L) registrado a nivel de sistema operativo."""
     def __init__(self, overlay):
         super().__init__()
         self.overlay = overlay
@@ -812,7 +820,6 @@ class WinEventFilter(QAbstractNativeEventFilter):
         if eventType == b"windows_generic_MSG":
             msg = wintypes.MSG.from_address(int(message))
 
-            # Atajo global (Ctrl + Alt + L) para alternar el bloqueo
             if msg.message == WM_HOTKEY and msg.wParam == HOTKEY_ID:
                 self.overlay.toggle_lock()
                 return True, 0
@@ -820,7 +827,11 @@ class WinEventFilter(QAbstractNativeEventFilter):
         return False, 0
 
 
+# ------------------------------------------------------------------------------
+# VENTANA PRINCIPAL (OVERLAY TRANSPARENTE CON CHAT WEB)
+# ------------------------------------------------------------------------------
 class StreamGlassOverlay(QWidget):
+    """Ventana flotante multitarea sin bordes para visualización de chats dinámicos."""
     def __init__(self):
         super().__init__()
         self.is_locked = False
@@ -829,7 +840,7 @@ class StreamGlassOverlay(QWidget):
         self.twitch_eventsub_thread = None
         self.current_conn_credentials = {}
 
-        # CÓDIGO CORREGIDO:
+        # Ajuste de propiedades del Overlay (Flotante y transparente)
         self.setWindowFlags(
             Qt.WindowType.WindowStaysOnTopHint |
             Qt.WindowType.FramelessWindowHint
@@ -837,13 +848,14 @@ class StreamGlassOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.resize(360, 520)
 
-        # REGISTRAR ATAJO GLOBAL (Ctrl + Alt + L)
+        # Registrar el atajo global de teclado en Windows (Ctrl + Alt + L)
         self.win_filter = WinEventFilter(self)
         QCoreApplication.instance().installNativeEventFilter(self.win_filter)
         
         hwnd = int(self.winId())
         ctypes.windll.user32.RegisterHotKey(hwnd, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_L)
 
+        # Cargar icono de la aplicación
         base_dir = os.path.dirname(__file__)
         possible_paths = [
             os.path.join(base_dir, 'assets', 'icon.png'),
@@ -855,7 +867,7 @@ class StreamGlassOverlay(QWidget):
                 self.setWindowIcon(QIcon(path))
                 break
 
-        # TIMER PARA DETECTAR EL CURSOR SIN HOOKS
+        # Timer para consultar si el puntero se encuentra sobre el botón de desbloqueo al estar la ventana bloqueada
         self.lock_checker_timer = QTimer(self)
         self.lock_checker_timer.setInterval(30)
         self.lock_checker_timer.timeout.connect(self._check_mouse_over_lock)
@@ -869,6 +881,7 @@ class StreamGlassOverlay(QWidget):
             self.open_settings()
 
     def _check_mouse_over_lock(self):
+        """Permite pulsar el botón de candado incluso cuando la ventana no acepta eventos de ratón."""
         if not self.is_locked or not hasattr(self, 'lock_btn'):
             return
 
@@ -884,6 +897,7 @@ class StreamGlassOverlay(QWidget):
         hwnd = int(self.winId())
         style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
 
+        # Alterna la propiedad de transparencia para eventos de ratón dinámicamente sobre el botón
         if btn_rect.contains(pt.x, pt.y):
             if style & WS_EX_TRANSPARENT:
                 user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style & ~WS_EX_TRANSPARENT)
@@ -892,6 +906,7 @@ class StreamGlassOverlay(QWidget):
                 user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT)
 
     def init_ui(self):
+        """Inicializa los botones de control, la tarjeta contenedora y el visor Web Engine."""
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -981,6 +996,7 @@ class StreamGlassOverlay(QWidget):
         self.header_container.setLayout(self.header_layout)
         card_layout.addWidget(self.header_container, 0)
 
+        # Visor de motor Web embebido (renderiza HTML/CSS)
         self.web_view = QWebEngineView()
         self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
         self.web_view.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
@@ -1005,6 +1021,7 @@ class StreamGlassOverlay(QWidget):
         self.old_pos = None
 
     def toggle_lock(self):
+        """Alterna el bloqueo para hacer que la ventana ignore interacciones y sea haga click-through."""
         self.is_locked = not self.is_locked
         hwnd = int(self.winId())
         user32 = ctypes.windll.user32
@@ -1049,12 +1066,14 @@ class StreamGlassOverlay(QWidget):
         self.update()
 
     def open_settings(self):
+        """Muestra la ventana modal de ajustes."""
         dialog = SettingsDialog(self)
         if dialog.exec():
             self.apply_theme()
             self.start_workers()
 
     def apply_theme(self):
+        """Inyecta variables CSS dinámicamente dentro de la vista Web usando JavaScript."""
         cfg = load_config()
         theme = cfg.get("theme", DEFAULT_CONFIG["theme"])
 
@@ -1080,6 +1099,7 @@ class StreamGlassOverlay(QWidget):
         self.web_view.page().runJavaScript(js_script)
 
     def simulate_events(self):
+        """Simula notificaciones y mensajes locales de prueba sin conexión."""
         import random
         tests = [
             ("Twitch", "gift", "Viewer_Fiel", "envió <b>500 bits</b> 💎"),
@@ -1092,6 +1112,7 @@ class StreamGlassOverlay(QWidget):
         self.handle_event(p, t, u, d)
 
     def init_html_chat(self):
+        """Define e inyecta la plantilla HTML/CSS/JS base que renderiza las casillas de chat."""
         base_html = """
         <!DOCTYPE html>
         <html>
@@ -1249,16 +1270,20 @@ class StreamGlassOverlay(QWidget):
         self.web_view.setHtml(base_html)
 
     def change_opacity(self, delta):
+        """Aumenta o disminuye la opacidad general de la ventana."""
         new_op = max(0.1, min(1.0, self.card.opacity_val + delta))
         self.card.set_opacity(new_op)
 
     def clear_chat(self):
+        """Ejecuta la función JavaScript para vaciar el historial visible del chat."""
         self.web_view.page().runJavaScript("clearChat();")
 
     def handle_event(self, platform, event_type, user, detail):
+        """Filtra y formatea eventos entrantes de los trabajadores para añadirlos al HTML."""
         cfg = load_config()
         theme = cfg.get("theme", DEFAULT_CONFIG["theme"])
 
+        # Comprobación de visibilidad según la configuración del usuario
         if platform == "TikTok":
             if event_type == "chat" and not theme.get("show_tiktok_chat", True):
                 return
@@ -1285,6 +1310,7 @@ class StreamGlassOverlay(QWidget):
         time_tag = f'<span class="time">{current_time}</span>'
         card_class = ""
 
+        # Asignar estilos según el tipo de alerta o mensaje
         if event_type == "reward":
             p_badge = '<span class="badge reward-badge">ALERTA</span>'
             msg_html = f'{time_tag}{p_badge} <span class="user">{user}</span> {detail}'
@@ -1302,6 +1328,7 @@ class StreamGlassOverlay(QWidget):
         self.web_view.page().runJavaScript(js_code)
 
     def start_workers(self):
+        """Inicia o reinicia los hilos de fondo según los canales y credenciales guardados."""
         cfg = load_config()
         
         new_credentials = {
@@ -1311,11 +1338,13 @@ class StreamGlassOverlay(QWidget):
             "twitch_secret": cfg.get("twitch_client_secret")
         }
 
+        # Evitar reiniciar los hilos si las credenciales no sufrieron cambios
         if self.current_conn_credentials == new_credentials:
             return
 
         self.current_conn_credentials = new_credentials
 
+        # Detener conexiones previas
         if self.tiktok_thread and self.tiktok_thread.isRunning():
             self.tiktok_thread.terminate()
         if self.twitch_thread and self.twitch_thread.isRunning():
@@ -1324,16 +1353,19 @@ class StreamGlassOverlay(QWidget):
             self.twitch_eventsub_thread.stop()
             self.twitch_eventsub_thread.terminate()
 
+        # Iniciar servicio de TikTok
         if cfg.get("tiktok_username"):
             self.tiktok_thread = TikTokWorker(cfg.get("tiktok_username"))
             self.tiktok_thread.event_received.connect(self.handle_event)
             self.tiktok_thread.start()
 
+        # Iniciar chat IRC de Twitch
         if cfg.get("twitch_channel"):
             self.twitch_thread = TwitchWorker(cfg.get("twitch_channel"))
             self.twitch_thread.event_received.connect(self.handle_event)
             self.twitch_thread.start()
 
+        # Iniciar cliente EventSub WebSocket de Twitch
         if cfg.get("twitch_client_id") and cfg.get("twitch_client_secret") and cfg.get("twitch_channel"):
             self.twitch_eventsub_thread = TwitchEventSubWorker(
                 cfg.get("twitch_client_id"),
@@ -1344,6 +1376,7 @@ class StreamGlassOverlay(QWidget):
             self.twitch_eventsub_thread.start()
 
     def close_app(self):
+        """Libera recursos del sistema, remueve HotKeys y cierra la aplicación."""
         self.lock_checker_timer.stop()
         hwnd = int(self.winId())
         ctypes.windll.user32.UnregisterHotKey(hwnd, HOTKEY_ID)
@@ -1351,12 +1384,14 @@ class StreamGlassOverlay(QWidget):
         sys.exit(0)
 
     def closeEvent(self, event):
+        """Manejador del evento de cierre directo del Widget."""
         self.lock_checker_timer.stop()
         hwnd = int(self.winId())
         ctypes.windll.user32.UnregisterHotKey(hwnd, HOTKEY_ID)
         QApplication.quit()
         sys.exit(0)
 
+    # Manejadores del ratón para permitir la libre movilización de la ventana
     def mousePressEvent(self, event):
         if not self.is_locked and event.button() == Qt.MouseButton.LeftButton:
             self.old_pos = event.globalPosition().toPoint()
@@ -1371,10 +1406,14 @@ class StreamGlassOverlay(QWidget):
         self.old_pos = None
 
 
+# ------------------------------------------------------------------------------
+# PUNTO DE ENTRADA PRINCIPAL
+# ------------------------------------------------------------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     
+    # Asignar icono global para la barra de tareas e interfaz de usuario
     base_dir = os.path.dirname(__file__)
     possible_paths = [
         os.path.join(base_dir, 'assets', 'icon-window.jpg'),
