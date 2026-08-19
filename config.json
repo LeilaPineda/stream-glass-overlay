@@ -1,0 +1,24 @@
+{
+    "tiktok_username": "",
+    "twitch_channel": "",
+    "twitch_client_id": "",
+    "twitch_client_secret": "",
+    "theme": {
+        "border_color": "#aaaaff",
+        "glass_bg": "#0f172a",
+        "card_bg": "#1e293b",
+        "card_opacity": 0,
+        "user_color": "#38bdf8",
+        "time_color": "#cbd5e1",
+        "show_badges": true,
+        "show_time": true,
+        "show_tiktok_chat": true,
+        "show_tiktok_gifts": true,
+        "show_tiktok_likes": true,
+        "show_tiktok_follows": true,
+        "show_tiktok_shares": true,
+        "show_twitch_chat": true,
+        "show_twitch_gifts": true,
+        "show_twitch_rewards": true
+    }
+}

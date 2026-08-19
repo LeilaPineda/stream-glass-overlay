@@ -1,3 +1,5 @@
 PyQt6
 TikTokLive
-twitchio
+twitchAPI
+python-dotenv
+pyinstaller
