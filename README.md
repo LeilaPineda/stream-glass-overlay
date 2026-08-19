@@ -39,3 +39,43 @@ stream-glass-overlay/
 ├── README.md
 ├── requirements.txt
 └── StreamGlass.spec
+```
+
+## 📦 Instalación y Configuración
+1. Clonar o descargar el repositorio
+```bash
+git clone [https://github.com/tu-usuario/stream-glass-overlay.git](https://github.com/tu-usuario/stream-glass-overlay.git)
+cd stream-glass-overlay
+```
+2. Crear y activar el entorno virtual
+```bash
+python -m venv venv
+.\venv\Scripts\activate
+```
+3. Instalar dependencias
+```bash
+pip install -r requirements.txt
+```
+
+## ⚙️ Uso en Desarrollo
+Para ejecutar la aplicación desde el código fuente:
+```bash
+python main.py
+```
+
+## 🛠️ Compilación a Ejecutable (.exe)
+Si realizas cambios en el código y deseas regenerar el ejecutable usando PyInstaller:
+```bash
+pyinstaller StreamGlass.spec
+```
+O mediante el comando directo:
+```bash
+pyinstaller --noconsole --onefile --icon="assets/icon-window.ico" --add-data "assets;assets" --name="StreamGlass" main.py
+```
+
+El ejecutable resultante se ubicará en la carpeta dist/StreamGlass.exe.
+
+## 📌 Puntos Técnicos Destacados
+* Icono de la Barra de Tareas: Se configuró ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID y se removió la bandera Qt.WindowType.Tool para permitir que Windows asocie la aplicación con su propio ejecutable e icono .ico.
+* Manejo de Rutas Relativas: Bucle dinámico possible_paths para cargar imágenes desde assets/ tanto en el entorno de desarrollo .py como dentro del paquete empaquetado de PyInstaller.
+* Persistencia de Tokens OAuth: Control de sesión para evitar que twitchAPI reabra el navegador en cada inicio.
