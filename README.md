@@ -9,7 +9,6 @@
 * **Interfaz Glassmorphism:** Fondo translúcido elegante que se integra sobre cualquier juego o ventana.
 * **Transparencia de Clics (Click-Through):** Modo flotante pasivo que deja pasar los clics del mouse hacia los juegos u otras aplicaciones activas.
 * **Multichat & Eventos:** Conexión a WebSockets en tiempo real para capturar chats y eventos de TikTok Live y Twitch.
-* **Temporizador / Cronómetro Incorporado:** Ideal para metas, retos y dinámicas de subathon o retransmisión.
 * **Integración Nativa en Windows:** Configuración de `AppUserModelID` para asignar el icono personalizado a la barra de tareas.
 * **Ejecutable Autónomo (.exe):** Generación de ejecutable listo para correr sin requerir instalación previa de Python.
 
