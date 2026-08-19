@@ -80,6 +80,6 @@ El ejecutable resultante se ubicará en la carpeta dist/StreamGlass.exe.
 ---
 
 ## 📌 Puntos Técnicos Destacados
-* Icono de la Barra de Tareas: Se configuró ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID y se removió la bandera Qt.WindowType.Tool para permitir que Windows asocie la aplicación con su propio ejecutable e icono .ico.
-* Manejo de Rutas Relativas: Bucle dinámico possible_paths para cargar imágenes desde assets/ tanto en el entorno de desarrollo .py como dentro del paquete empaquetado de PyInstaller.
-* Persistencia de Tokens OAuth: Control de sesión para evitar que twitchAPI reabra el navegador en cada inicio.
+* **Icono de la Barra de Tareas:** Se configuró ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID y se removió la bandera Qt.WindowType.Tool para permitir que Windows asocie la aplicación con su propio ejecutable e icono .ico.
+* **Manejo de Rutas Relativas:** Bucle dinámico possible_paths para cargar imágenes desde assets/ tanto en el entorno de desarrollo .py como dentro del paquete empaquetado de PyInstaller.
+* **Persistencia de Tokens OAuth:** Control de sesión para evitar que twitchAPI reabra el navegador en cada inicio.
