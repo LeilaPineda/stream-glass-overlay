@@ -63,7 +63,7 @@ Para ejecutar la aplicación desde el código fuente:
 ```bash
 python main.py
 ```
-¿Prefieres usar la versión compilada? Si no deseas instalar Python ni clonar el repositorio, puedes ir a la sección de Releases y descargar el archivo ejecutable listo para usar (.exe) con un solo clic.
+¿Prefieres usar la versión compilada? Si no deseas instalar Python ni clonar el repositorio, puedes ir a la sección de Releases y descargar el archivo ejecutable listo para usar (.zip) con un solo clic.
 
 ---
 
