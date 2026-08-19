@@ -40,6 +40,7 @@ stream-glass-overlay/
 ├── requirements.txt
 └── StreamGlass.spec
 ```
+---
 
 ## 📦 Instalación y Configuración
 1. Clonar o descargar el repositorio
@@ -62,6 +63,7 @@ Para ejecutar la aplicación desde el código fuente:
 ```bash
 python main.py
 ```
+---
 
 ## 🛠️ Compilación a Ejecutable (.exe)
 Si realizas cambios en el código y deseas regenerar el ejecutable usando PyInstaller:
@@ -74,6 +76,8 @@ pyinstaller --noconsole --onefile --icon="assets/icon-window.ico" --add-data "as
 ```
 
 El ejecutable resultante se ubicará en la carpeta dist/StreamGlass.exe.
+
+---
 
 ## 📌 Puntos Técnicos Destacados
 * Icono de la Barra de Tareas: Se configuró ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID y se removió la bandera Qt.WindowType.Tool para permitir que Windows asocie la aplicación con su propio ejecutable e icono .ico.
