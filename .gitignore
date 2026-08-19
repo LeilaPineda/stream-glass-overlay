@@ -1,0 +1,21 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Archivos de compilación de PyInstaller
+build/
+dist/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Configuración local / Secretos
+config.json
+.env
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
